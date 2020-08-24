@@ -10,6 +10,7 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.test.dialogs.BottomDialog
 import java.util.*
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback
@@ -36,15 +37,26 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback
         geocoder = Geocoder(this, Locale.US)
         mMap = googleMap
 
-        // Add a marker in Sydney and move the camera
         val moskva = LatLng(55.79490924736694, 37.61202726513147)
-        mMap.addMarker(MarkerOptions().position(moskva).title("Marker in Moskva"))
+        mMap.addMarker(MarkerOptions().position(moskva).title("Moskva")).showInfoWindow()
         mMap.moveCamera(CameraUpdateFactory.newLatLng(moskva))
+
         mMap.setOnMapClickListener {
+            mMap.clear()
             val latitude = it.latitude
             val longitude = it.longitude
             val address = geocoder.getFromLocation(latitude, longitude, 1)
-            val country = address[0].countryName
+            val country = if (address.size > 0) address[0].countryName else ""
+            val countryCode = if (address.size > 0) address[0].countryCode else ""
+
+            val clickLocation = LatLng(latitude, longitude)
+            mMap.animateCamera(CameraUpdateFactory.newLatLng(clickLocation))
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(clickLocation))
+
+            mMap.addMarker(MarkerOptions().position(clickLocation).title(country.plus(" $countryCode"))).showInfoWindow()
+
+            BottomDialog().show(supportFragmentManager, BottomDialog.TAG)
+
             return@setOnMapClickListener
         }
     }
