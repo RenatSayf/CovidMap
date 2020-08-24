@@ -11,6 +11,8 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.test.dialogs.BottomDialog
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import java.util.*
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback
@@ -45,9 +47,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback
             mMap.clear()
             val latitude = it.latitude
             val longitude = it.longitude
-            val address = geocoder.getFromLocation(latitude, longitude, 1)
+            val address = runBlocking {
+                val async = async {
+                    geocoder.getFromLocation(latitude, longitude, 1)
+                }
+                async.await()
+            }
+            //val address = geocoder.getFromLocation(latitude, longitude, 1)
             val country = if (address.size > 0) address[0].countryName else ""
             val countryCode = if (address.size > 0) address[0].countryCode else ""
+
+            val dailyData = mapsViewModel.getDailyData(countryCode)
 
             val clickLocation = LatLng(latitude, longitude)
             mMap.animateCamera(CameraUpdateFactory.newLatLng(clickLocation))
