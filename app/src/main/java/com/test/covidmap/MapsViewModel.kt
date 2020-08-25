@@ -7,9 +7,15 @@ import kotlinx.coroutines.runBlocking
 
 class MapsViewModel : ViewModel()
 {
-    fun getDailyData(code: String) : Any = runBlocking {
+    fun getDailyData(code: String?) : Any? = runBlocking {
         val res = async {
-            ApiFactory.rapidApi.getDailyTotalsAsync(code)
+            if (code != null) {
+                ApiFactory.rapidApi.getDailyTotalsAsync(code)
+            }
+            else
+            {
+                null
+            }
         }
         res.await()
     }

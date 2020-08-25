@@ -1,5 +1,6 @@
 package com.test.covidmap
 
+import android.location.Address
 import android.location.Geocoder
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -11,8 +12,9 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.test.dialogs.BottomDialog
-import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
+import io.reactivex.Observable
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 import java.util.*
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback
@@ -47,27 +49,43 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback
             mMap.clear()
             val latitude = it.latitude
             val longitude = it.longitude
-            val address = runBlocking {
-                val async = async {
-                    geocoder.getFromLocation(latitude, longitude, 1)
-                }
-                async.await()
+            getAddressFromLocation(latitude, longitude, 1)
+                .subscribeOn(Schedulers.newThread())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ list ->
+                    val country = if (list.isNotEmpty()) list[0].countryName else ""
+                    val countryCode = if (list.isNotEmpty()) list[0].countryCode else ""
+                    val dailyData = mapsViewModel.getDailyData(countryCode)
+
+                    val clickLocation = LatLng(latitude, longitude)
+                    mMap.animateCamera(CameraUpdateFactory.newLatLng(clickLocation))
+                    mMap.moveCamera(CameraUpdateFactory.newLatLng(clickLocation))
+
+                    mMap.addMarker(MarkerOptions().position(clickLocation).title(country.plus(" $countryCode"))).showInfoWindow()
+
+                    BottomDialog().show(supportFragmentManager, BottomDialog.TAG)
+                }, { err ->
+                    err.printStackTrace()
+                })
+        }
+    }
+
+    private fun getAddressFromLocation(latitude: Double, longitude: Double, maxResult: Int) : Observable<List<Address>>
+    {
+        return Observable.create { emitter ->
+            val listAddress: List<Address>
+            try
+            {
+                listAddress = geocoder.getFromLocation(latitude, longitude, maxResult)
+                emitter.onNext(listAddress)
+            } catch (e: Exception)
+            {
+                emitter.onError(e)
             }
-            //val address = geocoder.getFromLocation(latitude, longitude, 1)
-            val country = if (address.size > 0) address[0].countryName else ""
-            val countryCode = if (address.size > 0) address[0].countryCode else ""
-
-            val dailyData = mapsViewModel.getDailyData(countryCode)
-
-            val clickLocation = LatLng(latitude, longitude)
-            mMap.animateCamera(CameraUpdateFactory.newLatLng(clickLocation))
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(clickLocation))
-
-            mMap.addMarker(MarkerOptions().position(clickLocation).title(country.plus(" $countryCode"))).showInfoWindow()
-
-            BottomDialog().show(supportFragmentManager, BottomDialog.TAG)
-
-            return@setOnMapClickListener
+            finally
+            {
+                emitter.onComplete()
+            }
         }
     }
 }
